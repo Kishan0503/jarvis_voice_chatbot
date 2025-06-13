@@ -22,9 +22,7 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel('gemini-2.0-flash')
 
 # Initializing TTS
-client = ElevenLabs(
-    api_key=os.getenv("ELEVEN_LAB_API_KEY")
-)
+client = ElevenLabs(api_key=os.getenv("ELEVEN_LAB_API_KEY"))
 # voices = client.voices.get_all()
 # for voice in voices.voices:
 #     print(f"{voice.name}: {voice.voice_id}")
@@ -112,87 +110,4 @@ while True:
         else:
             response = generate_reply(query)
             jarvisvoice(response)
-
-
-
-
-""" USING TRANSFORMER MODELS """
-
-# from transformers import AutoModelForCausalLM, AutoTokenizer
-# import torch
-
-
-# Load Distilgpt2 model and tokenizer
-# tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
-# model = AutoModelForCausalLM.from_pretrained("distilgpt2")
-
-# Load TinyLlama model and tokenizer
-# tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
-# model = AutoModelForCausalLM.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
-# 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
-
-
-# # Load model
-# try:
-#     print("Loading DialoGPT model, please wait...")
-#     tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-small")
-#     model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-small")
-#     model.eval()
-#     print("Model loaded...")
-    
-# except Exception as e:
-#     print(f"Failed to load model: {e}")
-#     exit(1)
-
-
-# def generate_reply(user_input):
-#     model.eval()
-#     with torch.no_grad():
-#         system_prompt = "You are Jarvis, a helpful and friendly AI assistant. Respond concisely and naturally."
-#         full_input = f"{system_prompt}\nUser: {user_input}{tokenizer.eos_token}"
-#         input_ids = tokenizer.encode(
-#             full_input, 
-#             return_tensors='pt', 
-#             max_length=100, 
-#             truncation=True
-#         )
-#         output_ids = model.generate(
-#             input_ids,
-#             max_length=150,
-#             pad_token_id=tokenizer.eos_token_id,
-#             top_k=40,
-#             top_p=0.9,
-#             num_beams=4,
-#             no_repeat_ngram_size=2,
-#             early_stopping=True
-#         )
-#         reply = tokenizer.decode(output_ids[:, input_ids.shape[-1]:][0], skip_special_tokens=True)
-#         print("Reply: ", reply)
-#         return reply
-
-
-
-""" USING OPEN API API KEY """
-
-# Initializing OPENAI KEY
-# openai.api_key = os.getenv("OPENAI_API_KEY")
-# import openai
-
-
-# client = openai.OpenAI()
-# def generate_reply(user_input):
-#     try:
-#         response = client.chat.completions.create(
-#             model="gpt-3.5-turbo",  # or "gpt-4" if available
-#             messages=[
-#                 {"role": "system", "content": "You are a helpful assistant named Jarvis."},
-#                 {"role": "user", "content": user_input}
-#             ]
-#         )
-#         reply = response.choices[0].message.content.strip()
-#         print("Reply:", reply)
-#         return reply
-#     except Exception as e:
-#         print("Error with OpenAI API:", e)
-#         return "Sorry, I'm having trouble connecting to OpenAI right now."
 
