@@ -2,8 +2,7 @@ import json
 from datetime import datetime
 from typing import Dict, Any
 
-# Import Tool and FunctionDeclaration types from google.generativeai
-from google.generativeai.types import Tool, FunctionDeclaration
+from google.generativeai.types import FunctionDeclaration
 
 def get_current_datetime() -> Dict[str, Any]:
     """
@@ -19,18 +18,14 @@ def get_current_datetime() -> Dict[str, Any]:
     }
 
 # Define the FunctionDeclaration for the calendar tool
-calendar_tool_declaration = Tool(
-    function_declarations=[
-        FunctionDeclaration(
-            name="get_current_datetime",
-            description="Gets the current date, time, day of the week, month, and year.",
-            parameters={
-                "type": "object",
-                "properties": {}, # This function takes no parameters
-                "required": [],
-            },
-        )
-    ]
+calendar_tool_declaration = FunctionDeclaration(
+    name="get_current_datetime",
+    description="Gets the current date, time, day of the week, month, and year.",
+    parameters={
+        "type": "object",
+        "properties": {},  # This function takes no parameters
+        "required": [],
+    }
 )
 
 # Define a dictionary mapping tool names to their actual Python functions
