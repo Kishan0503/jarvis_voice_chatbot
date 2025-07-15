@@ -323,6 +323,10 @@ function backToSelection() {
     }, 300);
 }
 
+// Global variables for conversation state
+let isConversationActive = false;
+let isSpeaking = false;
+
 // Voice recognition handling
 function startVoiceInput(agent) {
     if (!authToken) {
@@ -331,6 +335,17 @@ function startVoiceInput(agent) {
     }
 
     const statusElement = document.getElementById(`${agent}-status`);
+    const agentImage = document.querySelector(`#${agent}-chat .relative img`);
+    
+    // Toggle conversation state
+    if (isConversationActive) {
+        stopVoiceRecognition();
+        isConversationActive = false;
+        statusElement.textContent = `Click on ${agent.charAt(0).toUpperCase() + agent.slice(1)} to start conversation`;
+        return;
+    }
+
+    isConversationActive = true;
     
     if (window.webkitSpeechRecognition) {
         if (speechRecognitionInstance) {
@@ -343,14 +358,18 @@ function startVoiceInput(agent) {
         speechRecognitionInstance.lang = 'en-US';
 
         speechRecognitionInstance.onstart = () => {
-            statusElement.textContent = 'Listening...';
+            const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
+            statusElement.textContent = `${agentName} is listening...`;
             statusElement.classList.add('listening');
         };
 
         speechRecognitionInstance.onresult = async (event) => {
             const transcript = event.results[0][0].transcript;
             const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
+            
+            // Update status to thinking
             statusElement.textContent = `${agentName} is thinking...`;
+            statusElement.classList.remove('listening');
             
             try {
                 const response = await fetch('/chat', {
@@ -381,16 +400,28 @@ function startVoiceInput(agent) {
         };
 
         speechRecognitionInstance.onend = () => {
-            if (statusElement.textContent === 'Listening...') {
-                statusElement.textContent = 'Click the microphone to speak';
-                statusElement.classList.remove('listening');
+            if (isConversationActive && !isSpeaking) {
+                // Restart recognition if conversation is active and not speaking
+                setTimeout(() => {
+                    if (isConversationActive && !isSpeaking) {
+                        speechRecognitionInstance.start();
+                    }
+                }, 100);
             }
         };
 
         speechRecognitionInstance.onerror = (event) => {
             console.error('Speech recognition error:', event.error);
-            statusElement.textContent = 'Error occurred. Please try again.';
-            statusElement.classList.remove('listening');
+            if (event.error === 'no-speech') {
+                // No speech detected, continue listening if conversation is active
+                if (isConversationActive && !isSpeaking) {
+                    speechRecognitionInstance.start();
+                }
+            } else {
+                statusElement.textContent = 'Error occurred. Please try again.';
+                statusElement.classList.remove('listening');
+                isConversationActive = false;
+            }
         };
 
         speechRecognitionInstance.start();
@@ -404,13 +435,28 @@ function stopVoiceRecognition() {
         speechRecognitionInstance.stop();
         speechRecognitionInstance = null;
     }
+    isConversationActive = false;
+    isSpeaking = false;
+    
+    // Remove speaking animation if it's still active
+    const jarvisImage = document.querySelector('#jarvis-chat .relative img');
+    const zaraImage = document.querySelector('#zara-chat .relative img');
+    if (jarvisImage) jarvisImage.classList.remove('speaking');
+    if (zaraImage) zaraImage.classList.remove('speaking');
 }
 
 // Text-to-speech with ElevenLabs voices
 function speakResponse(data, agent) {
     const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
     const statusElement = document.getElementById(`${agent}-status`);
+    const agentImage = document.querySelector(`#${agent}-chat .relative img`);
+    
+    // Set speaking state
+    isSpeaking = true;
     statusElement.textContent = `${agentName} is speaking...`;
+    
+    // Add speaking animation to the agent image
+    agentImage.classList.add('speaking');
 
     // Create audio element if it doesn't exist
     let audioElement = document.getElementById('tts-audio');
@@ -439,8 +485,20 @@ function speakResponse(data, agent) {
     
     // Handle audio events
     audioElement.onended = () => {
-        statusElement.textContent = 'Click the microphone to speak';
-        statusElement.classList.remove('listening');
+        const agentImage = document.querySelector(`#${agent}-chat .relative img`);
+        agentImage.classList.remove('speaking');
+        isSpeaking = false;            if (isConversationActive) {
+                const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
+                statusElement.textContent = `${agentName} is listening...`;
+                // Resume listening after speaking
+                if (speechRecognitionInstance) {
+                    speechRecognitionInstance.start();
+                } else {
+                    startVoiceInput(agent);
+                }
+        } else {
+            statusElement.textContent = `Click on ${agentName} to start conversation`;
+        }
         // Clean up the object URL after playback
         URL.revokeObjectURL(audioUrl);
     };

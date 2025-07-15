@@ -117,18 +117,10 @@
                 </button>
             </div>
             <div class="flex flex-col items-center">
-                <div class="relative w-70 h-70 mb-8">
-                    <img src="/static/jarvis2.gif" alt="Jarvis" class="w-full h-full object-cover rounded-full shadow-lg">
+                <div class="relative w-65 h-65 mb-8 rounded-full overflow-hidden bg-black flex items-center justify-center cursor-pointer transform transition-all duration-300 hover:scale-105" onclick="startVoiceInput('jarvis')">
+                    <img src="/static/jarvis2.gif" alt="Jarvis" class="w-full h-full object-cover rounded-full shadow-lg hover:shadow-blue-500/50">
                 </div>
-                <div id="jarvis-status" class="text-center text-xl mb-8 text-blue-300">Click the microphone to speak</div>
-                <button
-                    onclick="startVoiceInput('jarvis')"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold p-5 rounded-full shadow-lg transform transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-blue-500 hover:shadow-blue-500/50"
-                >
-                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
-                    </svg>
-                </button>
+                <div id="jarvis-status" class="text-center text-xl mb-8 text-blue-300">Click on Jarvis to speak</div>
             </div>
         </div>
 
@@ -144,18 +136,10 @@
                 </button>
             </div>
             <div class="flex flex-col items-center">
-                <div class="relative w-72 h-72 mb-8 rounded-full overflow-hidden bg-black flex items-center justify-center">
-                    <img src="/static/zara.gif" alt="Zara Visualizer" class="w-full h-full object-cover">
-                    </div>
-                <div id="zara-status" class="text-center text-xl mb-8 text-purple-300">Click the microphone to speak</div>
-                <button
-                    onclick="startVoiceInput('zara')"
-                    class="bg-purple-600 hover:bg-purple-700 text-white font-semibold p-5 rounded-full shadow-lg transform transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-purple-500 hover:shadow-purple-500/50"
-                >
-                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
-                    </svg>
-                </button>
+                <div class="relative w-75 h-75 mb-8 rounded-full overflow-hidden bg-black flex items-center justify-center cursor-pointer transform transition-all duration-300 hover:scale-105" onclick="startVoiceInput('zara')">
+                    <img src="/static/zara.gif" alt="Zara Visualizer" class="w-full h-full object-cover hover:shadow-purple-500/50">
+                </div>
+                <div id="zara-status" class="text-center text-xl mb-8 text-purple-300">Click on Zara to speak</div>
             </div>
         </div>
     </div>
