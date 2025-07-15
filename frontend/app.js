@@ -153,19 +153,32 @@ function handleLogout() {
     const jarvisCard = document.getElementById('jarvis-card');
     const zaraCard = document.getElementById('zara-card');
     
-    // Reset agent selection state
-    if (jarvisCard) jarvisCard.classList.remove('show-card');
-    if (zaraCard) zaraCard.classList.remove('show-card');
+    // Reset agent selection state with proper transitions
+    if (jarvisCard) {
+        jarvisCard.style.opacity = '0';
+        jarvisCard.style.transform = 'translateX(-100px)';
+    }
+    if (zaraCard) {
+        zaraCard.style.opacity = '0';
+        zaraCard.style.transform = 'translateX(100px)';
+    }
     if (agentSelection) {
         agentSelection.classList.remove('show-selection');
+        agentSelection.style.opacity = '0';
         setTimeout(() => {
             agentSelection.classList.add('hidden');
         }, 300);
     }
     
+    // Stop any ongoing voice recognition or speech
+    stopVoiceRecognition();
+    window.speechSynthesis.cancel();
+    
     // Hide voice chat if visible
     if (voiceChatContainer) {
+        voiceChatContainer.classList.remove('show-chat');
         voiceChatContainer.style.opacity = '0';
+        voiceChatContainer.style.transform = 'scale(0.95)';
         setTimeout(() => {
             voiceChatContainer.classList.add('hidden');
         }, 300);
@@ -179,7 +192,7 @@ function handleLogout() {
         }, 300);
     }
     
-    // Show auth container with fade in
+    // Show auth container with proper fade in
     if (authContainer) {
         // Reset form fields
         const loginEmail = document.getElementById('login-email');
@@ -193,15 +206,17 @@ function handleLogout() {
         if (loginForm) loginForm.classList.remove('hidden');
         if (registerForm) registerForm.classList.add('hidden');
         
-        // Fade in auth container
+        // Reset and fade in auth container
         authContainer.style.opacity = '0';
         authContainer.classList.remove('hidden');
+        
+        // Small delay to ensure proper transition
         setTimeout(() => {
             authContainer.style.opacity = '1';
-        }, 350);
+            // Reset body theme
+            document.body.className = '';
+        }, 50);
     }
-    
-    stopVoiceRecognition();
 }
 
 // Check authentication on page load
