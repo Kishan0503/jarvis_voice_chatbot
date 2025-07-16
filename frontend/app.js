@@ -6,7 +6,7 @@ const userInput = document.getElementById("user-input");
 let speechRecognitionInstance = null; // Store the recognition instance
 let authToken = localStorage.getItem('authToken');
 let userEmail = localStorage.getItem('userEmail');
-let currentAgent = null;
+let currentAgent = localStorage.getItem('currentAgent');
 
 // Show/hide auth forms
 function toggleAuthForms() {
@@ -19,22 +19,22 @@ function toggleAuthForms() {
 // Handle login
 async function handleLogin(event) {
     event.preventDefault();
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
+    
+    // Get form inputs
+    const email = document.getElementById('login-email')?.value;
+    const password = document.getElementById('login-password')?.value;
+
+    if (!email || !password) {
+        alert('Please enter both email and password');
+        return;
+    }
 
     try {
-        // First, check if all required elements exist
-        const authContainer = document.getElementById('auth-container');
-        const agentSelection = document.getElementById('agent-selection');
-        const appHeader = document.getElementById('app-header');
-        const userEmailDisplay = document.getElementById('user-email');
-        const jarvisCard = document.getElementById('jarvis-card');
-        const zaraCard = document.getElementById('zara-card');
-
-        if (!authContainer || !agentSelection || !userEmailDisplay || !appHeader) {
-            console.error('Required DOM elements not found');
-            alert('An error occurred. Please refresh the page.');
-            return;
+        // Show loading state
+        const loginButton = event.target.querySelector('button[type="submit"]');
+        if (loginButton) {
+            loginButton.disabled = true;
+            loginButton.textContent = 'Logging in...';
         }
 
         const response = await fetch('/auth/token', {
@@ -51,45 +51,74 @@ async function handleLogin(event) {
         const data = await response.json();
 
         if (response.ok) {
-            console.log('Login successful');
+            // Store auth data
             authToken = data.access_token;
             userEmail = email;
             localStorage.setItem('authToken', authToken);
             localStorage.setItem('userEmail', userEmail);
-            
-            // Show and setup header first
-            appHeader.classList.remove('hidden');
-            appHeader.style.opacity = '1';
-            userEmailDisplay.textContent = userEmail;
-            
-            // Fade out auth container
-            authContainer.style.opacity = '0';
-            setTimeout(() => {
-                authContainer.classList.add('hidden');
-                
-                // Show and animate agent selection
-                agentSelection.classList.remove('hidden');
-                agentSelection.classList.remove('show-selection');
-                jarvisCard.classList.remove('show-card');
-                zaraCard.classList.remove('show-card');
-                
-                setTimeout(() => {
-                    agentSelection.classList.add('show-selection');
-                    // Animate cards after a short delay
-                    setTimeout(() => {
-                        jarvisCard.classList.add('show-card');
-                        zaraCard.classList.add('show-card');
-                    }, 300);
-                }, 50);
-            }, 500);
+
+            // Update UI elements after successful login
+            initializeUIAfterLogin();
         } else {
-            console.error('Login failed:', data);
-            alert(data.detail || 'Login failed. Please check your credentials.');
+            throw new Error(data.detail || 'Login failed');
         }
     } catch (error) {
         console.error('Login error:', error);
-        alert('An error occurred during login. Please try again.');
+        alert(error.message || 'An error occurred during login. Please try again.');
+    } finally {
+        // Reset loading state
+        const loginButton = event.target.querySelector('button[type="submit"]');
+        if (loginButton) {
+            loginButton.disabled = false;
+            loginButton.textContent = 'Login';
+        }
     }
+}
+
+// Add this new function to handle UI initialization
+function initializeUIAfterLogin() {
+    const authContainer = document.getElementById('auth-container');
+    const agentSelection = document.getElementById('agent-selection');
+    const appHeader = document.getElementById('app-header');
+    const userEmailDisplay = document.getElementById('user-email');
+    const jarvisCard = document.getElementById('jarvis-card');
+    const zaraCard = document.getElementById('zara-card');
+
+    if (!authContainer || !agentSelection || !appHeader || !userEmailDisplay) {
+        console.error('Required DOM elements not found');
+        alert('An error occurred. Please refresh the page.');
+        return;
+    }
+
+    // Hide auth container
+    authContainer.style.opacity = '0';
+    setTimeout(() => {
+        authContainer.classList.add('hidden');
+        
+        // Show and update header
+        appHeader.classList.remove('hidden');
+        userEmailDisplay.textContent = userEmail;
+        setTimeout(() => {
+            appHeader.style.opacity = '1';
+        }, 50);
+
+        // Show and animate agent selection
+        agentSelection.classList.remove('hidden');
+        setTimeout(() => {
+            agentSelection.style.opacity = '1';
+            agentSelection.style.transform = 'scale(1)';
+            
+            // Animate agent cards
+            if (jarvisCard) {
+                jarvisCard.style.opacity = '1';
+                jarvisCard.style.transform = 'translateX(0)';
+            }
+            if (zaraCard) {
+                zaraCard.style.opacity = '1';
+                zaraCard.style.transform = 'translateX(0)';
+            }
+        }, 50);
+    }, 300);
 }
 
 // Handle registration
@@ -361,8 +390,12 @@ function startVoiceInput(agent) {
     }
 
     isConversationActive = true;
+    const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
+    statusElement.textContent = `${agentName} is listening...`;
+    statusElement.classList.add('listening');
     
     if (window.webkitSpeechRecognition) {
+        // Stop any existing recognition instance
         if (speechRecognitionInstance) {
             stopVoiceRecognition();
         }
@@ -378,11 +411,39 @@ function startVoiceInput(agent) {
             statusElement.classList.add('listening');
         };
 
+        // Update error handling
+        speechRecognitionInstance.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            if (event.error === 'no-speech') {
+                // Only restart if we're not already listening
+                if (isConversationActive && !isSpeaking && !speechRecognitionInstance) {
+                    startVoiceInput(agent);
+                }
+            } else {
+                statusElement.textContent = 'Error occurred. Please try again.';
+                statusElement.classList.remove('listening');
+                isConversationActive = false;
+                stopVoiceRecognition();
+            }
+        };
+
+        // Update onend handler
+        speechRecognitionInstance.onend = () => {
+            if (isConversationActive && !isSpeaking && !statusElement.textContent.includes('thinking')) {
+                setTimeout(() => {
+                    if (isConversationActive && !isSpeaking && !speechRecognitionInstance) {
+                        startVoiceInput(agent);
+                    }
+                }, 100);
+            }
+        };
+
+        // Update the speechRecognitionInstance.onresult handler
         speechRecognitionInstance.onresult = async (event) => {
             const transcript = event.results[0][0].transcript;
             const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
             
-            // Update status to thinking
+            // Update status to thinking as soon as speech is recognized
             statusElement.textContent = `${agentName} is thinking...`;
             statusElement.classList.remove('listening');
             
@@ -404,42 +465,32 @@ function startVoiceInput(agent) {
                     speakResponse(data, agent);
                 } else if (response.status === 401) {
                     handleLogout();
-                    alert('Session expired. Please login again.');
+                    const errorMessage = {
+                        audio_data: '', // This will be handled by text-to-speech
+                        text: "Oops! Your session has expired. Please login again."
+                    };
+                    speakResponse(errorMessage, agent);
                 } else {
                     throw new Error('Failed to get response');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                statusElement.textContent = 'Error occurred. Please try again.';
+                const errorMessage = {
+                    audio_data: '', // This will be handled by text-to-speech
+                    text: `Sorry! I'm having trouble connecting right now. Please try again in a moment.`
+                };
+                statusElement.textContent = 'Sorry! Something went wrong. Please try again.';
+                speakResponse(errorMessage, agent);
             }
         };
 
-        speechRecognitionInstance.onend = () => {
-            if (isConversationActive && !isSpeaking) {
-                // Restart recognition if conversation is active and not speaking
-                setTimeout(() => {
-                    if (isConversationActive && !isSpeaking) {
-                        speechRecognitionInstance.start();
-                    }
-                }, 100);
-            }
-        };
-
-        speechRecognitionInstance.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
-            if (event.error === 'no-speech') {
-                // No speech detected, continue listening if conversation is active
-                if (isConversationActive && !isSpeaking) {
-                    speechRecognitionInstance.start();
-                }
-            } else {
-                statusElement.textContent = 'Error occurred. Please try again.';
-                statusElement.classList.remove('listening');
-                isConversationActive = false;
-            }
-        };
-
-        speechRecognitionInstance.start();
+        try {
+            speechRecognitionInstance.start();
+        } catch (error) {
+            console.error('Speech recognition start error:', error);
+            stopVoiceRecognition();
+            startVoiceInput(agent);
+        }
     } else {
         alert('Speech recognition is not supported in this browser.');
     }
@@ -447,7 +498,11 @@ function startVoiceInput(agent) {
 
 function stopVoiceRecognition() {
     if (speechRecognitionInstance) {
-        speechRecognitionInstance.stop();
+        try {
+            speechRecognitionInstance.stop();
+        } catch (error) {
+            console.error('Error stopping speech recognition:', error);
+        }
         speechRecognitionInstance = null;
     }
     isConversationActive = false;
@@ -485,6 +540,28 @@ function speakResponse(data, agent) {
     audioElement.pause();
     audioElement.currentTime = 0;
 
+    // Check if this is an error message that needs text-to-speech
+    if (!data.audio_data) {
+        // Use browser's text-to-speech for error messages
+        const utterance = new SpeechSynthesisUtterance(data.text);
+        utterance.onend = () => {
+            agentImage.classList.remove('speaking');
+            isSpeaking = false;
+            if (isConversationActive) {
+                statusElement.textContent = `${agentName} is listening...`;
+                if (speechRecognitionInstance) {
+                    speechRecognitionInstance.start();
+                } else {
+                    startVoiceInput(agent);
+                }
+            } else {
+                statusElement.textContent = `Click on ${agentName} to start conversation`;
+            }
+        };
+        window.speechSynthesis.speak(utterance);
+        return;
+    }
+
     // Get the audio data
     const audioData = data.audio_data;
     if (!audioData) {
@@ -502,7 +579,8 @@ function speakResponse(data, agent) {
     audioElement.onended = () => {
         const agentImage = document.querySelector(`#${agent}-chat .relative img`);
         agentImage.classList.remove('speaking');
-        isSpeaking = false;            if (isConversationActive) {
+        isSpeaking = false;
+            if (isConversationActive) {
                 const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
                 statusElement.textContent = `${agentName} is listening...`;
                 // Resume listening after speaking
@@ -546,3 +624,39 @@ function base64ToBlob(base64, mimeType) {
     const byteArray = new Uint8Array(byteNumbers);
     return new Blob([byteArray], { type: mimeType });
 }
+
+function createStarryBackground() {
+    const starsContainer = document.createElement('div');
+    starsContainer.className = 'stars';
+    document.body.prepend(starsContainer);
+
+    const numberOfStars = 100;
+
+    for (let i = 0; i < numberOfStars; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        
+        // Random position
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+        
+        // Random size between 1-3px
+        const size = Math.random() * 2 + 1;
+        
+        // Random duration between 3-6s
+        const duration = Math.random() * 3 + 3;
+        
+        star.style.cssText = `
+            left: ${x}%;
+            top: ${y}%;
+            width: ${size}px;
+            height: ${size}px;
+            --duration: ${duration}s;
+        `;
+        
+        starsContainer.appendChild(star);
+    }
+}
+
+// Call this function when the page loads
+window.addEventListener('load', createStarryBackground);
