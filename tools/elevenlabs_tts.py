@@ -5,6 +5,8 @@ from typing import Iterator
 # Configure ElevenLabs with API key
 client = ElevenLabs(api_key=app_config.ELEVENLABS_API_KEY)
 
+# Creds: xebakol761@simerm.com - Xebako@098
+
 # Voice IDs for Jarvis and Zara
 VOICE_IDS = {
     # "jarvis": "pNInz6obpgDQGcFmaJgB",  # Adam - British male voice
@@ -41,5 +43,4 @@ def text_to_speech_stream(text: str, agent: str) -> Iterator[bytes]:
         return audio_stream
 
     except Exception as e:
-        print(f"Error in text_to_speech_stream: {e}")
         return iter([]) 

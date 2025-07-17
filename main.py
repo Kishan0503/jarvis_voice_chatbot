@@ -44,7 +44,6 @@ async def chat_response(req: ChatRequest, current_user: User = Depends(get_curre
     try:
         # Get response from Gemini with specified agent
         reply = await gemini_client.send_message_to_gemini(req.message, agent=req.agent)
-        
         # Generate audio stream using ElevenLabs
         audio_stream = text_to_speech_stream(reply, req.agent)
         
