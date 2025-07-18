@@ -26,8 +26,8 @@ class GeminiClient:
         # Consider switching to gemini-2.5-flash-lite if available in your region
         # as it has a higher RPD (1000 vs 200 for gemini-2.0-flash)
         # However, it's a preview model and features might change.
-        # self.model = genai.GenerativeModel(model_name='gemini-2.5-flash-lite-preview-06-17', tools=self.available_gemini_tools)
-        self.model = genai.GenerativeModel(model_name='gemini-2.0-flash', tools=self.available_gemini_tools)
+        self.model = genai.GenerativeModel(model_name='gemini-2.5-flash-lite-preview-06-17', tools=self.available_gemini_tools)
+        # self.model = genai.GenerativeModel(model_name='gemini-2.0-flash', tools=self.available_gemini_tools)
 
 
         self.all_tool_functions = {
@@ -85,13 +85,6 @@ class GeminiClient:
             }
         ]
         
-        # Count tokens for the initial history
-        try:
-            initial_history_tokens = self.model.count_tokens(self.initial_history_content).total_tokens
-            print(f"Initial chat history tokens for {self.current_agent.capitalize()}: {initial_history_tokens}")
-        except Exception as e:
-            print(f"Could not count tokens for initial history: {e}")
-
         self.chat = self.model.start_chat(history=self.initial_history_content)
 
 
@@ -106,9 +99,9 @@ class GeminiClient:
         if agent != self.current_agent:
             self.current_agent = agent
             self.initialize_chat()  # Reinitialize chat with new agent's instructions
-            print(f"Switched agent to: {self.current_agent.capitalize()}")
+            
         else:
-            print(f"Agent is already set to {self.current_agent.capitalize()}. No switch needed.")
+            print(f"Already using agent: {agent}. No switch needed.")
 
 
     async def send_message_to_gemini(self, user_message: str, agent: str = None) -> str:
@@ -120,7 +113,7 @@ class GeminiClient:
             if agent and agent.lower() != self.current_agent:
                 self.switch_agent(agent)
 
-            # --- History Truncation Logic ---
+            # --- Start History Truncation Logic ---
             # Get the current history from the chat object
             current_history_for_truncation = list(self.chat.history) # Make a copy
 
@@ -141,27 +134,11 @@ class GeminiClient:
             # Reinitialize the chat with the truncated history
             # This is crucial for controlling the history length passed in each new API call.
             self.chat = self.model.start_chat(history=retained_history)
-            print(f"Chat reinitialized with truncated history. Current history length: {len(self.chat.history)} messages.")
+            
             # --- End History Truncation Logic ---
-
-
-            # Step 1: Send user message
-            # Estimate tokens before sending
-            # The 'current_history' here reflects the *truncated* history that will be sent.
-            current_history_for_token_count = list(self.chat.history) + [{"role": "user", "parts": [user_message]}]
-            try:
-                prompt_tokens = self.model.count_tokens(current_history_for_token_count).total_tokens
-                print(f"Tokens for user message and *truncated* history (before first send): {prompt_tokens}")
-            except Exception as e:
-                print(f"Could not count tokens for user message with truncated history: {e}")
 
             response = self.chat.send_message(user_message)
             
-            if response.usage_metadata:
-                print(f"API Call 1 (User Message) - Prompt Tokens: {response.usage_metadata.prompt_token_count}, "
-                             f"Candidates Tokens: {response.usage_metadata.candidates_token_count}, "
-                             f"Total Tokens: {response.usage_metadata.total_token_count}")
-
             final_reply = ""
             
             if not response.candidates:
@@ -174,7 +151,7 @@ class GeminiClient:
                     function_args = {k: v for k, v in function_call.args.items()}
 
                     if function_name in self.all_tool_functions:
-                        print(f"Calling tool: {function_name} with args: {function_args}")
+                        
                         tool_output = self.all_tool_functions[function_name](**function_args)
 
                         tool_response_message = {
@@ -184,30 +161,19 @@ class GeminiClient:
                             }
                         }
                         
-                        # Step 2: Send tool output back to Gemini
-                        # The 'current_history' here will automatically include the previous user message
-                        # and the model's tool call response because it's part of the `self.chat` object's internal history.
-                        current_history_with_tool_output = list(self.chat.history) + [{"role": "user", "parts": [tool_response_message]}] # For token count estimate
-                        try:
-                            tool_response_prompt_tokens = self.model.count_tokens(current_history_with_tool_output).total_tokens
-                            print(f"Tokens for tool response and *current* history (before second send): {tool_response_prompt_tokens}")
-                        except Exception as e:
-                            print(f"Could not count tokens for tool response message: {e}")
-
+                        # Send the tool response back to Gemini for further processing
+                        # This allows Gemini to format the tool response into a natural language reply.
                         tool_response = self.chat.send_message(tool_response_message)
 
-                        if tool_response.usage_metadata:
-                            print(f"API Call 2 (Tool Response) - Prompt Tokens: {tool_response.usage_metadata.prompt_token_count}, "
-                                         f"Candidates Tokens: {tool_response.usage_metadata.candidates_token_count}, "
-                                         f"Total Tokens: {tool_response.usage_metadata.total_token_count}")
-                        
+                        # Check if the tool response has text content
                         if tool_response and hasattr(tool_response, 'text'):
                             final_reply += tool_response.text
                         else:
                             final_reply += "I processed your request using a tool, but encountered an issue formatting the response. Could you please rephrase your question?"
                     else:
-                        print(f"Error: Attempted to call unknown tool {function_name}")
+                        
                         final_reply += "I encountered an error processing your request due to an unknown tool. Please try again."
+                
                 elif hasattr(part, 'text'):
                     final_reply += part.text
                 else:
@@ -216,7 +182,7 @@ class GeminiClient:
             return final_reply if final_reply else self._handle_error_response("Gemini returned an empty reply.")
 
         except Exception as e:
-            print(f"Error during Gemini interaction: {str(e)}", exc_info=True)
+            print(f"Error in GeminiClient send_message_to_gemini: {e}")
             return self._handle_error_response(str(e))
 
     def _handle_error_response(self, error_details: str = "") -> str:

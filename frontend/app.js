@@ -1,3 +1,23 @@
+// Add this function at the start of the file to initialize voices
+let voices = [];
+
+function initializeVoices() {
+    return new Promise((resolve) => {
+        voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+            resolve(voices);
+        } else {
+            window.speechSynthesis.onvoiceschanged = () => {
+                voices = window.speechSynthesis.getVoices();
+                resolve(voices);
+            };
+        }
+    });
+}
+
+// Initialize voices when the page loads
+window.addEventListener('load', initializeVoices);
+
 // Get references to DOM elements
 const chatBox = document.getElementById("chat-box");
 const userInput = document.getElementById("user-input");
@@ -381,11 +401,11 @@ function startVoiceInput(agent) {
     const statusElement = document.getElementById(`${agent}-status`);
     const agentImage = document.querySelector(`#${agent}-chat .relative img`);
     
-    // Toggle conversation state
-    if (isConversationActive) {
+    // Only toggle conversation state if it's active and user clicks again
+    if (isConversationActive && !isSpeaking && event?.type === 'click') {
         stopVoiceRecognition();
-        isConversationActive = false;
         statusElement.textContent = `Click on ${agent.charAt(0).toUpperCase() + agent.slice(1)} to start conversation`;
+        statusElement.classList.remove('listening');
         return;
     }
 
@@ -415,23 +435,22 @@ function startVoiceInput(agent) {
         speechRecognitionInstance.onerror = (event) => {
             console.error('Speech recognition error:', event.error);
             if (event.error === 'no-speech') {
-                // Only restart if we're not already listening
-                if (isConversationActive && !isSpeaking && !speechRecognitionInstance) {
+                if (isConversationActive && !isSpeaking) {
                     startVoiceInput(agent);
                 }
             } else {
                 statusElement.textContent = 'Error occurred. Please try again.';
                 statusElement.classList.remove('listening');
-                isConversationActive = false;
                 stopVoiceRecognition();
             }
         };
 
         // Update onend handler
         speechRecognitionInstance.onend = () => {
-            if (isConversationActive && !isSpeaking && !statusElement.textContent.includes('thinking')) {
+            if (isConversationActive && !isSpeaking) {
+                // Restart recognition if conversation is active and not speaking
                 setTimeout(() => {
-                    if (isConversationActive && !isSpeaking && !speechRecognitionInstance) {
+                    if (isConversationActive && !isSpeaking) {
                         startVoiceInput(agent);
                     }
                 }, 100);
@@ -443,7 +462,6 @@ function startVoiceInput(agent) {
             const transcript = event.results[0][0].transcript;
             const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
             
-            // Update status to thinking as soon as speech is recognized
             statusElement.textContent = `${agentName} is thinking...`;
             statusElement.classList.remove('listening');
             
@@ -465,22 +483,18 @@ function startVoiceInput(agent) {
                     speakResponse(data, agent);
                 } else if (response.status === 401) {
                     handleLogout();
-                    const errorMessage = {
-                        audio_data: '', // This will be handled by text-to-speech
-                        text: "Oops! Your session has expired. Please login again."
-                    };
-                    speakResponse(errorMessage, agent);
+                    speakResponse({
+                        reply: "Oops! Your session has expired. Please login again."
+                    }, agent);
                 } else {
                     throw new Error('Failed to get response');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                const errorMessage = {
-                    audio_data: '', // This will be handled by text-to-speech
-                    text: `Sorry! I'm having trouble connecting right now. Please try again in a moment.`
-                };
+                speakResponse({
+                    reply: `Sorry! I'm having trouble connecting right now. Please try again in a moment.`
+                }, agent);
                 statusElement.textContent = 'Sorry! Something went wrong. Please try again.';
-                speakResponse(errorMessage, agent);
             }
         };
 
@@ -505,6 +519,10 @@ function stopVoiceRecognition() {
         }
         speechRecognitionInstance = null;
     }
+    
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
     isConversationActive = false;
     isSpeaking = false;
     
@@ -515,7 +533,7 @@ function stopVoiceRecognition() {
     if (zaraImage) zaraImage.classList.remove('speaking');
 }
 
-// Text-to-speech with ElevenLabs voices
+// Updated speakResponse function
 function speakResponse(data, agent) {
     const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
     const statusElement = document.getElementById(`${agent}-status`);
@@ -524,92 +542,114 @@ function speakResponse(data, agent) {
     // Set speaking state
     isSpeaking = true;
     statusElement.textContent = `${agentName} is speaking...`;
-    
-    // Add speaking animation to the agent image
     agentImage.classList.add('speaking');
 
-    // Create audio element if it doesn't exist
-    let audioElement = document.getElementById('tts-audio');
-    if (!audioElement) {
-        audioElement = document.createElement('audio');
-        audioElement.id = 'tts-audio';
-        document.body.appendChild(audioElement);
-    }
-
-    // Stop any currently playing audio
-    audioElement.pause();
-    audioElement.currentTime = 0;
-
-    // Check if this is an error message that needs text-to-speech
-    if (!data.audio_data) {
-        // Use browser's text-to-speech for error messages
-        const utterance = new SpeechSynthesisUtterance(data.text);
-        utterance.onend = () => {
-            agentImage.classList.remove('speaking');
-            isSpeaking = false;
-            if (isConversationActive) {
-                statusElement.textContent = `${agentName} is listening...`;
-                if (speechRecognitionInstance) {
-                    speechRecognitionInstance.start();
-                } else {
-                    startVoiceInput(agent);
-                }
-            } else {
-                statusElement.textContent = `Click on ${agentName} to start conversation`;
-            }
-        };
-        window.speechSynthesis.speak(utterance);
-        return;
-    }
-
-    // Get the audio data
-    const audioData = data.audio_data;
-    if (!audioData) {
-        console.error('No audio data received');
-        statusElement.textContent = 'Error occurred while speaking. Please try again.';
-        return;
-    }
-
-    // Convert base64 to blob and create object URL
-    const audioBlob = base64ToBlob(audioData, 'audio/mp3');
-    const audioUrl = URL.createObjectURL(audioBlob);
-    audioElement.src = audioUrl;
+    const utterance = new SpeechSynthesisUtterance(data.reply);
     
-    // Handle audio events
-    audioElement.onended = () => {
-        const agentImage = document.querySelector(`#${agent}-chat .relative img`);
+    // Function to find the best voice match
+    const findVoice = (isZara) => {
+        const langPriority = ['en-US', 'en-GB', 'en'];
+        let selectedVoice = null;
+
+        // Filter voices by language priority
+        for (const lang of langPriority) {
+            const langVoices = voices.filter(voice => voice.lang.startsWith(lang));
+            
+            if (isZara) {
+                // For Zara - try to find female voice
+                selectedVoice = langVoices.find(voice => {
+                    const name = voice.name.toLowerCase();
+                    return name.includes('female') || 
+                           name.includes('samantha') || 
+                           name.includes('zira') ||
+                           name.includes('victoria');
+                });
+            } else {
+                // For Jarvis - try to find male voice
+                selectedVoice = langVoices.find(voice => {
+                    const name = voice.name.toLowerCase();
+                    return name.includes('male') || 
+                           name.includes('david') || 
+                           name.includes('daniel') ||
+                           name.includes('alex') ||
+                           (!name.includes('female') && !name.includes('zira'));
+                });
+            }
+
+            if (selectedVoice) break;
+        }
+
+        // Fallback to any English voice if no match found
+        if (!selectedVoice) {
+            selectedVoice = voices.find(voice => voice.lang.startsWith('en')) || voices[0];
+        }
+
+        return selectedVoice;
+    };
+
+    // Configure voice and speech parameters
+    const isZara = agent.toLowerCase() === 'zara';
+    utterance.voice = findVoice(isZara);
+    
+    // Adjust speech parameters based on agent
+    if (isZara) {
+        utterance.pitch = 1.2;  // Higher pitch for Zara
+        utterance.rate = 1.0;   // Normal speed
+    } else {
+        utterance.pitch = 0.9;  // Lower pitch for Jarvis
+        utterance.rate = 0.95;  // Slightly slower for Jarvis
+    }
+
+    // Handle speech end event
+    utterance.onend = () => {
         agentImage.classList.remove('speaking');
         isSpeaking = false;
-            if (isConversationActive) {
-                const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
-                statusElement.textContent = `${agentName} is listening...`;
-                // Resume listening after speaking
-                if (speechRecognitionInstance) {
-                    speechRecognitionInstance.start();
-                } else {
-                    startVoiceInput(agent);
-                }
+
+        if (isConversationActive) {
+            statusElement.textContent = `${agentName} is listening...`;
+            statusElement.classList.add('listening');
+            
+            // Restart voice recognition
+            startVoiceInput(agent);
         } else {
             statusElement.textContent = `Click on ${agentName} to start conversation`;
+            statusElement.classList.remove('listening');
         }
-        // Clean up the object URL after playback
-        URL.revokeObjectURL(audioUrl);
     };
 
-    audioElement.onerror = (error) => {
-        console.error('Audio playback error:', error);
+    // Handle speech error
+    utterance.onerror = (error) => {
+        console.error('Speech synthesis error:', error);
         statusElement.textContent = 'Error occurred while speaking. Please try again.';
         statusElement.classList.remove('listening');
-        URL.revokeObjectURL(audioUrl);
+        agentImage.classList.remove('speaking');
+        isSpeaking = false;
+        
+        if (isConversationActive) {
+            // Restart voice recognition even after error
+            setTimeout(() => startVoiceInput(agent), 100);
+        }
     };
 
-    // Play the audio
-    audioElement.play().catch(error => {
-        console.error('Error playing audio:', error);
-        statusElement.textContent = 'Error occurred while speaking. Please try again.';
-        statusElement.classList.remove('listening');
-        URL.revokeObjectURL(audioUrl);
-    });
+    // Fix for some browsers that cut off speech
+    utterance.onpause = () => {
+        window.speechSynthesis.resume();
+    };
+
+    // Fix for Chrome cutting off speech
+    let resumeInfinity = () => {
+        if (isSpeaking) {
+            window.speechSynthesis.resume();
+            setTimeout(resumeInfinity, 5000);
+        }
+    };
+
+    // Stop any current speech
+    window.speechSynthesis.cancel();
+
+    // Speak the text
+    window.speechSynthesis.speak(utterance);
+    resumeInfinity();
 }
 
 // Helper function to convert base64 to blob
