@@ -29,13 +29,53 @@ let userEmail = localStorage.getItem('userEmail');
 let currentAgent = localStorage.getItem('currentAgent');
 
 // Show/hide auth forms
-function toggleAuthForms() {
+function toggleForm(formType) {
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
-    loginForm.classList.toggle('hidden');
-    registerForm.classList.toggle('hidden');
+    
+    if (formType === 'login') {
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+    } else {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+    }
 }
 
+// Handle registration
+async function handleRegister(event) {
+    event.preventDefault();
+    
+    const username = document.getElementById('register-username').value;
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+
+    try {
+        const response = await fetch('/auth/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username,
+                email,
+                password
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            alert('Registration successful! Please login.');
+            toggleForm('login');
+        } else {
+            const error = await response.json();
+            alert(error.detail || 'Registration failed. Please try again.');
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
+        alert('An error occurred during registration. Please try again.');
+    }
+}
 // Handle login
 async function handleLogin(event) {
     event.preventDefault();
