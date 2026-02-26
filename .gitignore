@@ -12,7 +12,8 @@ __pycache__/
 .python-version 
 
 # Environments 
-.env 
+.env
+.env.prod
 .venv 
 env/ 
 venv/
