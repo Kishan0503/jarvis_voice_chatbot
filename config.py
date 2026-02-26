@@ -13,6 +13,8 @@ class Config:
     GOOGLE_CSE_API_KEY = os.getenv("GOOGLE_CSE_API_KEY")
     GOOGLE_CSE_CX = os.getenv("GOOGLE_CSE_CX")
     ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
     # Basic validation (optional but recommended)
     if not GEMINI_API_KEY:
@@ -21,6 +23,8 @@ class Config:
         raise ValueError("OPENWEATHER_API_KEY environment variable not set.")
     if not ELEVENLABS_API_KEY:
         raise ValueError("ELEVENLABS_API_KEY environment variable not set.")
+    if not JWT_SECRET_KEY:
+        raise ValueError("JWT_SECRET_KEY environment variable not set.")
 
 # Create a single instance of Config to be imported elsewhere
 app_config = Config()
