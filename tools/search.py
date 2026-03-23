@@ -29,7 +29,8 @@ def google_search(query: str) -> Dict[str, Any]:
     """
     if not search_service:
         return {"error": "Google Custom Search service not initialized. Check API key and network."}
-
+    
+    print(f"Calling Google Search API for --- {query}")
     try:
         # Perform the search
         # num=5 fetches the top 5 results

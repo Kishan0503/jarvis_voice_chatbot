@@ -20,6 +20,8 @@ def get_current_weather(location: str, unit: str = "celsius") -> Dict[str, Any]:
         "units": "metric" if unit.lower() == "celsius" else "imperial"
     }
 
+    print(f"Calling OpenWeatherMap API for --- {location}")
+
     try:
         response = requests.get(base_url, params=params)
         response.raise_for_status()

@@ -421,7 +421,7 @@ function startVoiceInput(agent) {
         speechRecognitionInstance = new webkitSpeechRecognition();
         speechRecognitionInstance.continuous = false;
         speechRecognitionInstance.interimResults = false;
-        speechRecognitionInstance.lang = 'en-US';
+        // speechRecognitionInstance.lang = 'en-US';
 
         speechRecognitionInstance.onstart = () => {
             const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);

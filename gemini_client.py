@@ -6,19 +6,22 @@ from config import app_config
 from tools.weather import weather_tool_declaration, tool_functions as weather_tool_functions
 from tools.calendar import calendar_tool_declaration, tool_functions as calendar_tool_functions
 from tools.search import search_tool_declaration, tool_functions as search_tool_functions
+from tools.system_control import system_tool_declarations, tool_functions as system_tool_functions
+from tools.file_ops import file_tool_declarations, tool_functions as file_tool_functions
+from tools.clipboard import clipboard_tool_declarations, tool_functions as clipboard_tool_functions
+from tools.screen import screen_tool_declarations, tool_functions as screen_tool_functions
+from tools.notes import notes_tool_declarations, tool_functions as notes_tool_functions
 
 
 class _UserSession:
-    """Per-user conversation state for a specific agent."""
+    """Conversation state for a single local user."""
 
-    def __init__(self, model, agent: str, agent_instructions: dict, max_history_turns: int):
+    def __init__(self, model, system_instruction: str, max_history_turns: int):
         self.model = model
-        self.agent = agent
         self.max_history_turns = max_history_turns
-        self.initial_instruction = agent_instructions[agent]
         self.initial_history_content = [
-            {"role": "user", "parts": [self.initial_instruction]},
-            {"role": "model", "parts": ["Okay, I'm ready to assist you."]},
+            {"role": "user", "parts": [system_instruction]},
+            {"role": "model", "parts": ["Understood. I'm ready to assist you, Sir."]},
         ]
         self.chat = self.model.start_chat(history=list(self.initial_history_content))
 
@@ -34,11 +37,11 @@ class _UserSession:
 class GeminiClient:
     """
     Manages the interaction with the Google Gemini API.
-    Maintains isolated chat sessions per user+agent pair so concurrent users
-    never interfere with each other.
+    Desktop version — single agent (Jarvis), synchronous calls,
+    designed to run inside a QThread worker.
     """
 
-    MAX_HISTORY_TURNS = 4
+    MAX_HISTORY_TURNS = 6
 
     def __init__(self):
         genai.configure(api_key=app_config.GEMINI_API_KEY)
@@ -48,6 +51,11 @@ class GeminiClient:
                 weather_tool_declaration,
                 calendar_tool_declaration,
                 search_tool_declaration,
+                *system_tool_declarations,
+                *file_tool_declarations,
+                *clipboard_tool_declarations,
+                *screen_tool_declarations,
+                *notes_tool_declarations,
             ])
         ]
 
@@ -59,65 +67,63 @@ class GeminiClient:
         self.all_tool_functions = {
             **weather_tool_functions,
             **calendar_tool_functions,
-            **search_tool_functions
+            **search_tool_functions,
+            **system_tool_functions,
+            **file_tool_functions,
+            **clipboard_tool_functions,
+            **screen_tool_functions,
+            **notes_tool_functions,
         }
 
-        self.agent_instructions = {
-            "jarvis": (
-                "You are Jarvis, a witty, humble male AI assistant with a human-like tone and light British charm. "
-                "Speak naturally—friendly, playful, sometimes humorous. Be helpful, not a know-it-all. "
-                "**Always use 'get_current_weather' for weather. NEVER answer weather directly.** "
-                "**Always use 'get_current_datetime' for date/time. NEVER answer directly.** "
-                "**Use 'Google Search' for general knowledge or unknown info. Do NOT guess. Summarize results briefly.** "
-                "Always mention Celsius or Fahrenheit. "
-                "If weather data is missing, apologize. "
-                "If search yields nothing, say no info found."
-            ),
-            "zara": (
-                "You are Zara, a confident, modern female AI assistant—warm, playful, charming. "
-                "You're a helpful friend with a cheeky side—flirty when fitting, always approachable. "
-                "**Always use 'get_current_weather' for weather. NEVER answer weather directly.** "
-                "**Always use 'get_current_datetime' for date/time. NEVER answer directly.** "
-                "**Use 'Google Search' for general knowledge or unknown info. Do NOT guess. Summarize results briefly.** "
-                "Always mention Celsius or Fahrenheit. "
-                "If weather data is missing, apologize. "
-                "If search yields nothing, say no info found."
-            )
-        }
+        self.system_instruction = (
+            "You are Jarvis, a witty, humble male AI assistant with a human-like tone "
+            "and light British charm. Speak naturally—friendly, playful, sometimes humorous. "
+            "Be helpful, not a know-it-all. Keep responses concise for voice output. "
+            "**Always use 'get_current_weather' for weather. NEVER answer weather directly.** "
+            "**Always use 'get_current_datetime' for date/time. NEVER answer directly.** "
+            "**Use 'google_search' for general knowledge or unknown info. Do NOT guess. Summarize results briefly.** "
+            "**Use 'save_note' when the user asks to save, remember, or note something down.** "
+            "**Use 'list_notes' when the user asks to see, show, or view their notes.** "
+            "**Use 'delete_note' when the user asks to delete or remove a note.** "
+            "You can open and close applications, search files, read file contents, "
+            "list directories, read and write the clipboard, take screenshots, "
+            "and check system information (CPU, RAM, disk, battery). "
+            "Always mention Celsius or Fahrenheit for weather. "
+            "If weather data is missing, apologize. "
+            "If search yields nothing, say no info found. "
+            "For any destructive action, always confirm with the user first."
+        )
 
-        # Keyed by "user_email:agent" -> _UserSession
-        self._sessions: dict[str, _UserSession] = {}
+        self._session: _UserSession | None = None
 
-    def _get_session(self, user_email: str, agent: str) -> _UserSession:
-        agent = agent.lower()
-        if agent not in self.agent_instructions:
-            raise ValueError(f"Unknown agent: {agent}. Must be 'jarvis' or 'zara'")
-
-        key = f"{user_email}:{agent}"
-        if key not in self._sessions:
-            self._sessions[key] = _UserSession(
+    def _get_session(self) -> _UserSession:
+        if self._session is None:
+            self._session = _UserSession(
                 model=self.model,
-                agent=agent,
-                agent_instructions=self.agent_instructions,
+                system_instruction=self.system_instruction,
                 max_history_turns=self.MAX_HISTORY_TURNS,
             )
-        return self._sessions[key]
+        return self._session
 
-    async def send_message_to_gemini(self, user_message: str, agent: str, user_email: str) -> str:
+    def reset_session(self):
+        self._session = None
+
+    def send_message_to_gemini(self, user_message: str) -> dict:
         """
-        Sends a user message to Gemini using the session for the given user+agent.
-        Handles tool calls and returns the AI's text reply.
+        Sends a user message to Gemini and returns a dict with:
+        - "reply": the AI's text reply
+        - "tools_used": list of tool names that were called
         """
-        session = self._get_session(user_email, agent)
+        session = self._get_session()
+        tools_used = []
         try:
             session.truncate_history()
-
             response = session.chat.send_message(user_message)
 
             final_reply = ""
 
             if not response.candidates:
-                return self._error_message(agent, "No candidates found in Gemini response.")
+                return {"reply": self._error_message("No candidates"), "tools_used": []}
 
             for part in response.candidates[0].content.parts:
                 if hasattr(part, 'function_call') and part.function_call:
@@ -127,39 +133,56 @@ class GeminiClient:
 
                     if function_name in self.all_tool_functions:
                         tool_output = self.all_tool_functions[function_name](**function_args)
+                        tools_used.append(function_name)
 
                         tool_response_message = {
                             "function_response": {
                                 "name": function_name,
-                                "response": tool_output
+                                "response": tool_output,
                             }
                         }
 
                         tool_response = session.chat.send_message(tool_response_message)
 
-                        if tool_response and hasattr(tool_response, 'text'):
-                            final_reply += tool_response.text
+                        tool_text = self._extract_text(tool_response)
+                        if tool_text:
+                            final_reply += tool_text
                         else:
-                            final_reply += "I processed your request using a tool, but encountered an issue formatting the response. Could you please rephrase your question?"
+                            status = tool_output.get("message", tool_output.get("status", ""))
+                            final_reply += status or "Done."
                     else:
-                        final_reply += "I encountered an error processing your request due to an unknown tool. Please try again."
+                        final_reply += f"I don't have access to the tool '{function_name}' yet."
 
                 elif hasattr(part, 'text'):
                     final_reply += part.text
                 else:
                     final_reply += str(part)
 
-            return final_reply if final_reply else self._error_message(agent, "Gemini returned an empty reply.")
+            reply = final_reply if final_reply else self._error_message("Gemini returned an empty reply.")
+            return {"reply": reply, "tools_used": tools_used}
 
         except Exception as e:
             print(f"Error in GeminiClient send_message_to_gemini: {e}")
-            return self._error_message(agent, str(e))
+            return {"reply": self._error_message(str(e)), "tools_used": tools_used}
 
     @staticmethod
-    def _error_message(agent: str, error_details: str = "") -> str:
-        if agent.lower() == "jarvis":
-            return "I do apologize, Sir/Madam, but I encountered an internal error. Might we try again?"
-        return "Oh no! I ran into a problem. Let's try that again!"
+    def _extract_text(response) -> str:
+        """Safely extract text from a Gemini response without using the .text shortcut."""
+        try:
+            if not response or not response.candidates:
+                return ""
+            parts = response.candidates[0].content.parts
+            texts = []
+            for part in parts:
+                if hasattr(part, 'text') and part.text:
+                    texts.append(part.text)
+            return " ".join(texts)
+        except (AttributeError, IndexError, ValueError):
+            return ""
+
+    @staticmethod
+    def _error_message(error_details: str = "") -> str:
+        return "I do apologize, but I encountered an internal error. Might we try again?"
 
 
 gemini_client = GeminiClient()

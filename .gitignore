@@ -17,5 +17,6 @@ __pycache__/
 .venv 
 env/ 
 venv/
-venv 
-ENV/ 
+venv
+venv_desktop/
+ENV/
