@@ -58,7 +58,8 @@ def load_fonts():
             path = os.path.join(FONTS_DIR, filename)
             fid = QFontDatabase.addApplicationFont(path)
             if fid < 0:
-                print(f"Warning: failed to load font {filename}")
+                # print(f"Warning: failed to load font {filename}")
+                pass
 
 
 def global_stylesheet() -> str:

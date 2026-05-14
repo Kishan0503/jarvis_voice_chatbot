@@ -114,6 +114,7 @@ class GeminiClient:
         - "reply": the AI's text reply
         - "tools_used": list of tool names that were called
         """
+        # print(f"User message: {user_message}")
         session = self._get_session()
         tools_used = []
         try:
@@ -159,10 +160,11 @@ class GeminiClient:
                     final_reply += str(part)
 
             reply = final_reply if final_reply else self._error_message("Gemini returned an empty reply.")
+            # print(f"Gemini reply: {reply}")
             return {"reply": reply, "tools_used": tools_used}
 
         except Exception as e:
-            print(f"Error in GeminiClient send_message_to_gemini: {e}")
+            # print(f"Error in GeminiClient send_message_to_gemini: {e}")
             return {"reply": self._error_message(str(e)), "tools_used": tools_used}
 
     @staticmethod

@@ -22,5 +22,5 @@ def text_to_speech_stream(text: str) -> Iterator[bytes]:
         return audio_stream
 
     except Exception as e:
-        print(f"ElevenLabs TTS error: {e}")
+        # print(f"ElevenLabs TTS error: {e}")
         return iter([])

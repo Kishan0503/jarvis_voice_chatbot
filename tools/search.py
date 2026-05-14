@@ -17,7 +17,7 @@ GOOGLE_CSE_CX = app_config.GOOGLE_CSE_CX
 try:
     search_service = build("customsearch", "v1", developerKey=GOOGLE_CSE_API_KEY)
 except Exception as e:
-    print(f"Error initializing Google Custom Search service: {e}")
+    # print(f"Error initializing Google Custom Search service: {e}")
     search_service = None # Set to None if initialization fails
 
 def google_search(query: str) -> Dict[str, Any]:
@@ -30,7 +30,7 @@ def google_search(query: str) -> Dict[str, Any]:
     if not search_service:
         return {"error": "Google Custom Search service not initialized. Check API key and network."}
     
-    print(f"Calling Google Search API for --- {query}")
+    # print(f"Calling Google Search API for --- {query}")
     try:
         # Perform the search
         # num=5 fetches the top 5 results
@@ -50,7 +50,7 @@ def google_search(query: str) -> Dict[str, Any]:
             return {"results": [], "message": "No search results found."}
 
     except Exception as e:
-        print(f"Error during Google search for query '{query}': {e}")
+        # print(f"Error during Google search for query '{query}': {e}")
         return {"error": f"Failed to perform search: {str(e)}"}
 
 search_tool_declaration = FunctionDeclaration(

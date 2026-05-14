@@ -10,7 +10,7 @@ def get_current_datetime() -> Dict[str, Any]:
     """
     now = datetime.now()
     
-    print(f"Calling get_current_datetime API ---")
+    # print(f"Calling get_current_datetime API ---")
 
     return {
         "current_date": now.strftime("%Y-%m-%d"),

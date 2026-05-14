@@ -36,7 +36,8 @@ class TTSWorker(QThread):
                     self.audio_ready.emit(filepath)
                     return
             except Exception as e:
-                print(f"TTS {engine_name} failed: {e}")
+                # print(f"TTS {engine_name} failed: {e}")
+                pass
                 continue
 
         self.error_occurred.emit("All TTS engines failed")
