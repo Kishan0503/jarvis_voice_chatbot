@@ -29,13 +29,53 @@ let userEmail = localStorage.getItem('userEmail');
 let currentAgent = localStorage.getItem('currentAgent');
 
 // Show/hide auth forms
-function toggleAuthForms() {
+function toggleForm(formType) {
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
-    loginForm.classList.toggle('hidden');
-    registerForm.classList.toggle('hidden');
+    
+    if (formType === 'login') {
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+    } else {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+    }
 }
 
+// Handle registration
+async function handleRegister(event) {
+    event.preventDefault();
+    
+    const username = document.getElementById('register-username').value;
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+
+    try {
+        const response = await fetch('/auth/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username,
+                email,
+                password
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            alert('Registration successful! Please login.');
+            toggleForm('login');
+        } else {
+            const error = await response.json();
+            alert(error.detail || 'Registration failed. Please try again.');
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
+        alert('An error occurred during registration. Please try again.');
+    }
+}
 // Handle login
 async function handleLogin(event) {
     event.preventDefault();
@@ -139,49 +179,6 @@ function initializeUIAfterLogin() {
             }
         }, 50);
     }, 300);
-}
-
-// Handle registration
-async function handleRegister(event) {
-    event.preventDefault();
-    const username = document.getElementById('register-username').value;
-    const email = document.getElementById('register-email').value;
-    const password = document.getElementById('register-password').value;
-
-    try {
-        const response = await fetch('/auth/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                username,
-                email,
-                password,
-            })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('Registration successful! Please login.');
-            // Reset form fields
-            document.getElementById('register-username').value = '';
-            document.getElementById('register-email').value = '';
-            document.getElementById('register-password').value = '';
-            toggleAuthForms();
-        } else {
-            // Check for specific error messages
-            if (data.detail === "Email already registered") {
-                alert('This email is already registered. Please login or use a different email.');
-            } else {
-                alert(data.detail || 'Registration failed. Please try again.');
-            }
-        }
-    } catch (error) {
-        console.error('Registration error:', error);
-        alert('An error occurred during registration. Please try again.');
-    }
 }
 
 // Handle logout
@@ -390,6 +387,7 @@ function backToSelection() {
 // Global variables for conversation state
 let isConversationActive = false;
 let isSpeaking = false;
+let currentAudio = null;
 
 // Voice recognition handling
 function startVoiceInput(agent) {
@@ -423,7 +421,7 @@ function startVoiceInput(agent) {
         speechRecognitionInstance = new webkitSpeechRecognition();
         speechRecognitionInstance.continuous = false;
         speechRecognitionInstance.interimResults = false;
-        speechRecognitionInstance.lang = 'en-US';
+        // speechRecognitionInstance.lang = 'en-US';
 
         speechRecognitionInstance.onstart = () => {
             const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
@@ -522,6 +520,10 @@ function stopVoiceRecognition() {
     
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+    }
     
     isConversationActive = false;
     isSpeaking = false;
@@ -533,43 +535,44 @@ function stopVoiceRecognition() {
     if (zaraImage) zaraImage.classList.remove('speaking');
 }
 
-// Updated speakResponse function
-function speakResponse(data, agent) {
-    const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
-    const statusElement = document.getElementById(`${agent}-status`);
-    const agentImage = document.querySelector(`#${agent}-chat .relative img`);
-    
-    // Set speaking state
-    isSpeaking = true;
-    statusElement.textContent = `${agentName} is speaking...`;
-    agentImage.classList.add('speaking');
+function finalizeSpeechCycle(agentName, statusElement, agentImage, agent) {
+    agentImage.classList.remove('speaking');
+    isSpeaking = false;
+    currentAudio = null;
 
-    const utterance = new SpeechSynthesisUtterance(data.reply);
-    
-    // Function to find the best voice match
+    if (isConversationActive) {
+        statusElement.textContent = `${agentName} is listening...`;
+        statusElement.classList.add('listening');
+        startVoiceInput(agent);
+    } else {
+        statusElement.textContent = `Click on ${agentName} to start conversation`;
+        statusElement.classList.remove('listening');
+    }
+}
+
+function speakWithBrowserTTS(text, agent, agentName, statusElement, agentImage) {
+    const utterance = new SpeechSynthesisUtterance(text);
+
     const findVoice = (isZara) => {
         const langPriority = ['en-US', 'en-GB', 'en'];
         let selectedVoice = null;
 
-        // Filter voices by language priority
         for (const lang of langPriority) {
             const langVoices = voices.filter(voice => voice.lang.startsWith(lang));
-            
+
             if (isZara) {
-                // For Zara - try to find female voice
                 selectedVoice = langVoices.find(voice => {
                     const name = voice.name.toLowerCase();
-                    return name.includes('female') || 
-                           name.includes('samantha') || 
+                    return name.includes('female') ||
+                           name.includes('samantha') ||
                            name.includes('zira') ||
                            name.includes('victoria');
                 });
             } else {
-                // For Jarvis - try to find male voice
                 selectedVoice = langVoices.find(voice => {
                     const name = voice.name.toLowerCase();
-                    return name.includes('male') || 
-                           name.includes('david') || 
+                    return name.includes('male') ||
+                           name.includes('david') ||
                            name.includes('daniel') ||
                            name.includes('alex') ||
                            (!name.includes('female') && !name.includes('zira'));
@@ -579,7 +582,6 @@ function speakResponse(data, agent) {
             if (selectedVoice) break;
         }
 
-        // Fallback to any English voice if no match found
         if (!selectedVoice) {
             selectedVoice = voices.find(voice => voice.lang.startsWith('en')) || voices[0];
         }
@@ -587,56 +589,30 @@ function speakResponse(data, agent) {
         return selectedVoice;
     };
 
-    // Configure voice and speech parameters
     const isZara = agent.toLowerCase() === 'zara';
     utterance.voice = findVoice(isZara);
-    
-    // Adjust speech parameters based on agent
+
     if (isZara) {
-        utterance.pitch = 1.2;  // Higher pitch for Zara
-        utterance.rate = 1.0;   // Normal speed
+        utterance.pitch = 1.2;
+        utterance.rate = 1.0;
     } else {
-        utterance.pitch = 0.9;  // Lower pitch for Jarvis
-        utterance.rate = 0.95;  // Slightly slower for Jarvis
+        utterance.pitch = 0.9;
+        utterance.rate = 0.95;
     }
 
-    // Handle speech end event
-    utterance.onend = () => {
-        agentImage.classList.remove('speaking');
-        isSpeaking = false;
+    utterance.onend = () => finalizeSpeechCycle(agentName, statusElement, agentImage, agent);
 
-        if (isConversationActive) {
-            statusElement.textContent = `${agentName} is listening...`;
-            statusElement.classList.add('listening');
-            
-            // Restart voice recognition
-            startVoiceInput(agent);
-        } else {
-            statusElement.textContent = `Click on ${agentName} to start conversation`;
-            statusElement.classList.remove('listening');
-        }
-    };
-
-    // Handle speech error
     utterance.onerror = (error) => {
         console.error('Speech synthesis error:', error);
         statusElement.textContent = 'Error occurred while speaking. Please try again.';
         statusElement.classList.remove('listening');
-        agentImage.classList.remove('speaking');
-        isSpeaking = false;
-        
-        if (isConversationActive) {
-            // Restart voice recognition even after error
-            setTimeout(() => startVoiceInput(agent), 100);
-        }
+        finalizeSpeechCycle(agentName, statusElement, agentImage, agent);
     };
 
-    // Fix for some browsers that cut off speech
     utterance.onpause = () => {
         window.speechSynthesis.resume();
     };
 
-    // Fix for Chrome cutting off speech
     let resumeInfinity = () => {
         if (isSpeaking) {
             window.speechSynthesis.resume();
@@ -644,12 +620,69 @@ function speakResponse(data, agent) {
         }
     };
 
-    // Stop any current speech
     window.speechSynthesis.cancel();
-
-    // Speak the text
     window.speechSynthesis.speak(utterance);
     resumeInfinity();
+}
+
+// Uses ElevenLabs via backend /tts, with browser TTS fallback
+async function speakResponse(data, agent) {
+    const agentName = agent.charAt(0).toUpperCase() + agent.slice(1);
+    const statusElement = document.getElementById(`${agent}-status`);
+    const agentImage = document.querySelector(`#${agent}-chat .relative img`);
+
+    isSpeaking = true;
+    statusElement.textContent = `${agentName} is speaking...`;
+    agentImage.classList.add('speaking');
+
+    try {
+        const response = await fetch('/tts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({
+                text: data.reply,
+                agent: agent,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`TTS request failed with status ${response.status}`);
+        }
+
+        const audioBlob = await response.blob();
+        if (!audioBlob || audioBlob.size === 0) {
+            throw new Error('Empty audio received from /tts');
+        }
+
+        window.speechSynthesis.cancel();
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        currentAudio = audio;
+
+        audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            finalizeSpeechCycle(agentName, statusElement, agentImage, agent);
+        };
+
+        audio.onerror = (error) => {
+            console.error('Audio playback error:', error);
+            URL.revokeObjectURL(audioUrl);
+            speakWithBrowserTTS(data.reply, agent, agentName, statusElement, agentImage);
+        };
+
+        await audio.play();
+    } catch (error) {
+        console.error('ElevenLabs TTS failed, falling back to browser TTS:', error);
+        speakWithBrowserTTS(data.reply, agent, agentName, statusElement, agentImage);
+    }
 }
 
 // Helper function to convert base64 to blob

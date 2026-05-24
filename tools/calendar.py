@@ -9,6 +9,9 @@ def get_current_datetime() -> Dict[str, Any]:
     Gets the current date, time, day of the week, month, and year.
     """
     now = datetime.now()
+    
+    # print(f"Calling get_current_datetime API ---")
+
     return {
         "current_date": now.strftime("%Y-%m-%d"),
         "current_time": now.strftime("%H:%M:%S"),

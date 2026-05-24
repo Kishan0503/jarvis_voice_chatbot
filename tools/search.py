@@ -1,4 +1,3 @@
-import json
 from typing import Dict, Any
 
 # Import API client
@@ -7,8 +6,7 @@ from googleapiclient.discovery import build
 # Import app_config for API keys
 from config import app_config
 
-# Import Tool and FunctionDeclaration types from google.generativeai
-from google.generativeai.types import Tool, FunctionDeclaration
+from google.generativeai.types import FunctionDeclaration
 
 # Retrieve Google Custom Search API Key and CX
 GOOGLE_CSE_API_KEY = app_config.GOOGLE_CSE_API_KEY
@@ -19,7 +17,7 @@ GOOGLE_CSE_CX = app_config.GOOGLE_CSE_CX
 try:
     search_service = build("customsearch", "v1", developerKey=GOOGLE_CSE_API_KEY)
 except Exception as e:
-    print(f"Error initializing Google Custom Search service: {e}")
+    # print(f"Error initializing Google Custom Search service: {e}")
     search_service = None # Set to None if initialization fails
 
 def google_search(query: str) -> Dict[str, Any]:
@@ -31,7 +29,8 @@ def google_search(query: str) -> Dict[str, Any]:
     """
     if not search_service:
         return {"error": "Google Custom Search service not initialized. Check API key and network."}
-
+    
+    # print(f"Calling Google Search API for --- {query}")
     try:
         # Perform the search
         # num=5 fetches the top 5 results
@@ -51,24 +50,19 @@ def google_search(query: str) -> Dict[str, Any]:
             return {"results": [], "message": "No search results found."}
 
     except Exception as e:
-        print(f"Error during Google search for query '{query}': {e}")
+        # print(f"Error during Google search for query '{query}': {e}")
         return {"error": f"Failed to perform search: {str(e)}"}
 
-# Define the FunctionDeclaration for the Google Search tool
-search_tool_declaration = Tool(
-    function_declarations=[
-        FunctionDeclaration(
-            name="google_search",
-            description="Performs a Google search to find information on the internet. Use this for general knowledge questions, current events, or anything requiring external information.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "The search query string."},
-                },
-                "required": ["query"],
-            },
-        )
-    ]
+search_tool_declaration = FunctionDeclaration(
+    name="google_search",
+    description="Performs a Google search to find information on the internet. Use this for general knowledge questions, current events, or anything requiring external information.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "The search query string."},
+        },
+        "required": ["query"],
+    },
 )
 
 # Define a dictionary mapping tool names to their actual Python functions
