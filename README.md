@@ -17,6 +17,7 @@
 
 ---
 
+
 ## ✨ What is Jarvis?
 
 Jarvis is a **sci-fi inspired AI voice assistant that runs entirely on your desktop**. You speak to it, it speaks back, and it can genuinely *do things* — open your apps, fetch live weather, search the web, manage your files, control your clipboard, take screenshots, and more.
