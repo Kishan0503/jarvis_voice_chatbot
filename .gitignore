@@ -1,22 +1,69 @@
-# Django #
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# Google OAuth / service account credentials
+client_secret*.json
+credentials*.json
+service_account*.json
+token.json
+token*.json
+
+# ── Databases ─────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+MANIFEST
+
+# ── Virtual Environments ──────────────────────────────────────────────────────
+venv/
+venv_desktop/
+.venv/
+env/
+ENV/
+
+# ── Logs & Temp Files ─────────────────────────────────────────────────────────
 *.log
 *.pot
-*.pyc
-media
+*.tmp
+*.temp
 
-# Python #
-__pycache__
-__pycache__/
+# ── IDE & OS ──────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
 
-# pyenv 
-.python-version 
+# ── Pyenv ─────────────────────────────────────────────────────────────────────
+.python-version
 
-# Environments 
-.env
-.env.prod
-.venv 
-env/ 
-venv/
-venv
-venv_desktop/
-ENV/
+# ── Test & Coverage ───────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ── Jarvis Runtime Data ───────────────────────────────────────────────────────
+# User data stored in ~/.jarvis/ — not in the repo
+screenshots/
+*.wav
+*.mp3
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+media/

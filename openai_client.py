@@ -10,9 +10,11 @@ from tools.clipboard import tool_functions as clipboard_tool_functions
 from tools.screen import tool_functions as screen_tool_functions
 from tools.notes import tool_functions as notes_tool_functions
 
+import os
+
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-NVIDIA_API_KEY = "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"
-NVIDIA_MODEL = "meta/llama-3.1-8b-instruct"
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.1-8b-instruct")
 
 # All tools in OpenAI function-calling format
 _TOOLS = [
